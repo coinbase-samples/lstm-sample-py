@@ -11,10 +11,10 @@ from keras.layers import LSTM
 
 current_time = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-df = pd.read_csv('eth_ohlcv.csv')
+df = pd.read_csv('eth_ohlcv.csv') # replace with your own dataset
 df.dropna(inplace=True)
 print(len(df))
-df = df.iloc[25000:]
+df = df.iloc[25000:] # dependent on dataset size and testing
 df.reset_index(drop=True, inplace=True)
 
 close_data = df[['close']]
@@ -44,8 +44,8 @@ def create_dataset(dataset, time_step):
         dataY.append(b)
     return np.array(dataX), np.array(dataY)
 
-time_step = 168
-neurons = 100
+time_step = 168 # one week of hourly data
+neurons = 100 
 dropout_rate = 0.2
 
 X_train, y_train = create_dataset(train_data_scaled, time_step)
