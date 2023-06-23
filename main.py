@@ -1,3 +1,17 @@
+# Copyright 2023-present Coinbase Global, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import pandas as pd
 import numpy as np
 import datetime as dt
@@ -20,7 +34,7 @@ df.reset_index(drop=True, inplace=True)
 close_data = df[['close']]
 print(close_data.shape)
 
-train_size = int(len(close_data) * 0.75)
+train_size = int(len(close_data) * 0.75) # reasonable default; may require customization
 train_data = close_data[:train_size]
 test_data = close_data[train_size:]
 print(train_data.shape)
@@ -35,6 +49,14 @@ test_data_scaled = scaler.transform(test_data)
 print('train_data: ', train_data_scaled.shape)
 print('test_data: ', test_data_scaled.shape)
 
+def reshape_data(X):
+    return X.reshape(X.shape[0], X.shape[1], 1)
+
+def generate_dataset(dataset, time_step):
+    X, y = create_dataset(dataset, time_step)
+    X = reshape_data(X)
+    return X, y
+
 def create_dataset(dataset, time_step):
     dataX, dataY = [], []
     for i in range(len(dataset)-2*time_step-1):
@@ -45,14 +67,12 @@ def create_dataset(dataset, time_step):
     return np.array(dataX), np.array(dataY)
 
 time_step = 168 # one week of hourly data
-neurons = 100 
+neurons = 100
 dropout_rate = 0.2
 
-X_train, y_train = create_dataset(train_data_scaled, time_step)
-X_test, y_test = create_dataset(test_data_scaled, time_step)
+X_train, y_train = generate_dataset(train_data_scaled, time_step)
+X_test, y_test = generate_dataset(test_data_scaled, time_step)
 
-X_train = X_train.reshape(X_train.shape[0], X_train.shape[1], 1)
-X_test = X_test.reshape(X_test.shape[0], X_test.shape[1], 1)
 print("X_train: ", X_train.shape)
 print("X_test: ", X_test.shape)
 
