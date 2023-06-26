@@ -25,16 +25,18 @@ from keras.layers import LSTM
 
 current_time = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-df = pd.read_csv('eth_ohlcv.csv') # replace with your own dataset
+df = pd.read_csv('eth_ohlcv.csv')  # replace with your own dataset
 df.dropna(inplace=True)
 print(len(df))
-df = df.iloc[25000:] # dependent on dataset size and testing
+df = df.iloc[25000:]  # dependent on dataset size and testing
+df['date'] = pd.to_datetime(df['timestamp'], unit='us')  # Coinbase OHLCV is provided in microseconds
 df.reset_index(drop=True, inplace=True)
+df['original_index'] = df.index
 
 close_data = df[['close']]
 print(close_data.shape)
 
-train_size = int(len(close_data) * 0.75) # reasonable default; may require customization
+train_size = int(len(close_data) * 0.75)  # reasonable default; may require customization
 train_data = close_data[:train_size]
 test_data = close_data[train_size:]
 print(train_data.shape)
@@ -66,9 +68,9 @@ def create_dataset(dataset, time_step):
         dataY.append(b)
     return np.array(dataX), np.array(dataY)
 
-time_step = 168 # one week of hourly data
-neurons = 100
-dropout_rate = 0.2
+time_step = 168  # one week of hourly data
+neurons = 50  # may require customization
+dropout_rate = 0.2 # may require customization
 
 X_train, y_train = generate_dataset(train_data_scaled, time_step)
 X_test, y_test = generate_dataset(test_data_scaled, time_step)
@@ -88,7 +90,7 @@ early_stopping = EarlyStopping(
 history = model.fit(X_train, y_train, validation_data=(X_test, y_test),
                     epochs=100, batch_size=10, verbose=1, callbacks=[early_stopping])
 
-model.save("trained_eth_hourly_lstm.h5")
+model.save("trained_eth_hourly_lstm.keras")
 print("Model saved successfully!")
 
 loss = history.history['loss']
@@ -100,9 +102,9 @@ plt.title('Training and validation loss {} / {} / {}  (Time: {})'.format(time_st
 plt.legend(loc=0)
 plt.show()
 
-# Load the saved model if applicable
+# Load the saved model if applicable; comment out lines 81-103 before proceeding
 # from keras.models import load_model
-# model = load_model('trained_eth_hourly_lstm.h5')
+# model = load_model('trained_eth_hourly_lstm.keras')
 
 train_predict = model.predict(X_train)
 test_predict = model.predict(X_test)
@@ -122,10 +124,13 @@ testPredictPlot[len(train_data) + time_step : len(train_data) + time_step + len(
 
 current_time = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+train_date = df['date'].iloc[time_step : time_step+len(train_predict)]
+test_date = df['date'].iloc[len(train_predict) + 2*time_step + time_step : len(train_predict) + 2*time_step + time_step + len(test_predict)]
+
 plt.figure(figsize=(12, 6))
-plt.plot(close_data, label='Original Close')
-plt.plot(trainPredictPlot, label='Training Predictions')
-plt.plot(testPredictPlot, label='Test Predictions')
+plt.plot(df['date'], close_data, label='Original Close')
+plt.plot(train_date, train_predict[:,-1], label='Training Predictions')
+plt.plot(test_date, test_predict[:,-1], label='Test Predictions')
 plt.xlabel('Time')
 plt.ylabel('Close Value')
 plt.title('Close Values vs. Predictions {} / {} / {}  (Time: {})'.format(time_step,neurons,dropout_rate, current_time))
@@ -136,15 +141,16 @@ last_data = test_data_scaled[-time_step:]
 last_data = last_data.reshape(1, time_step, 1)
 
 predictions = model.predict(last_data)
-
 predictions = predictions.reshape(-1, 1)
 predictions = scaler.inverse_transform(predictions)
 
-hours = range(len(close_data), len(close_data) + time_step)
+freq = 'H'
+last_date = df['date'].iloc[-1]
+future_dates = pd.date_range(start=last_date, periods=time_step+1, freq=freq)[1:]
 
 plt.figure(figsize=(12, 6))
-plt.plot(hours, predictions, label='Predictions')
-plt.xlabel('Hour')
+plt.plot(future_dates, predictions, label='Predictions')
+plt.xlabel('Date')
 plt.ylabel('Price')
 plt.title('Future Price Predictions {} / {} / {}  (Time: {})'.format(time_step, neurons, dropout_rate, current_time))
 plt.legend()
